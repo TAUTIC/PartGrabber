@@ -22,46 +22,54 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-
+from bs4 import BeautifulSoup
 from lxml import html
+from pprint import pprint
 import requests
 import sys
 
 def getDetail(part):
 	print part[:7]
 
+def getHyperlinks(html):
+	return [(a.text, a['href']) for a in html.findAll("a")]
+
 def getDetails(barcode):
+	quantity = barcode[7:16]
 	page = requests.get('http://www.digikey.com/product-detail/en/0/0/' + barcode[:7])
-	tree = html.fromstring(page.text)
+		
+	part = dict()		# Holds details related to the part
+	pricing = dict()	# Holds pricing for the part
 
-	part = {}
+	soup = BeautifulSoup(page.text)  #open("test.html")
 
-	part['ProductNumber'] = tree.xpath("//meta[@name='WT.pn_sku']/@content")[0]
-	part['MfgProductNumber'] = tree.xpath("//meta[@itemprop='name']/@content")[0]
-	part['Description'] = tree.xpath("//td[@itemprop='description']/text()")[0]
-	part['Datasheet'] = tree.xpath("//a[@class='lnkDatasheet']/@href")[0]
-	part['ProductPhoto'] = tree.xpath("//a[@class='lnkProductPhoto']/@href")[0]
-	 
-	detailsHeader = []
-	detailsData = []
+	# Parse pricing data from html
+	table = soup.find("table",{"id":"pricing"})
+	for row in table.findAll("tr"):
+		tds = row.findAll(text=True)
+		if len(tds) > 1:
+			if tds[0] != "Price Break": pricing[tds[0]] = tds[1] #print tds[0], tds[1]
 
-	ths = tree.xpath("//table[@class='product-additional-info']/tr/td[@class='attributes-table-main']/table/tr/th")
-	for th in ths:
-		detailsHeader.append(th.text)
-
-	tds = tree.xpath("//table[@class='product-additional-info']/tr/td[@class='attributes-table-main']/table/tr/td")
-	for td in tds:
-		detailsData.append(td.text)
-
-	detailRecord = 0
-	for r in detailsHeader:
-		part[detailsHeader[detailRecord]] = detailsData[detailRecord]
-		detailRecord += 1
-
-	print part
-
+	# Parse product details from html
+	part['ProductNumber'] = soup.find("meta",{"name":"WT.pn_sku"})['content']
+	part['MfgProductNumber'] = soup.find("meta",{"itemprop":"name"})['content']
+	
+	# Grab the dynamic details table data
+	table = soup.find("table",{"class":"product-additional-info"})
+	for row in table.table.findAll("tr"):
+		part[row.th(text=True)[0]] = getHyperlinks(row.td) or row.td(text=True)
+	
+	print '------------------------------------------------'
+	print 'Pricing data:'
+	pprint(pricing)
+	print '------------------------------------------------'
+	print 'Part data:'
+	pprint(part)
+	print '------------------------------------------------'
+	print 'Qty in bag: ' , quantity
 
 while True:
 	code = raw_input('Please scan barcode, or press q to quit.\r\nPartGrabber> ')
 	if code == 'q': sys.exit()
 	elif len(code) > 7: getDetails(code)
+	else: getDetails("0607274000000010146541") # Used for testing..
