@@ -34,14 +34,29 @@ def getDetails(barcode):
 	page = requests.get('http://www.digikey.com/product-detail/en/0/0/' + barcode[:7])
 	tree = html.fromstring(page.text)
 
-
 	part = {}
 
-	part['ProductNumber'] = tree.xpath("//meta[@name='WT.pn_sku']/@content")
-	part['MfgProductNumber'] = tree.xpath("//meta[@itemprop='name']/@content")
-	part['Description'] = tree.xpath("//td[@itemprop='description']/text()")
-	part['Datasheet'] = tree.xpath("//a[@class='lnkDatasheet']/@href")
-	part['ProductPhoto'] = tree.xpath("//a[@class='lnkProductPhoto']/@href")
+	part['ProductNumber'] = tree.xpath("//meta[@name='WT.pn_sku']/@content")[0]
+	part['MfgProductNumber'] = tree.xpath("//meta[@itemprop='name']/@content")[0]
+	part['Description'] = tree.xpath("//td[@itemprop='description']/text()")[0]
+	part['Datasheet'] = tree.xpath("//a[@class='lnkDatasheet']/@href")[0]
+	part['ProductPhoto'] = tree.xpath("//a[@class='lnkProductPhoto']/@href")[0]
+	 
+	detailsHeader = []
+	detailsData = []
+
+	ths = tree.xpath("//table[@class='product-additional-info']/tr/td[@class='attributes-table-main']/table/tr/th")
+	for th in ths:
+		detailsHeader.append(th.text)
+
+	tds = tree.xpath("//table[@class='product-additional-info']/tr/td[@class='attributes-table-main']/table/tr/td")
+	for td in tds:
+		detailsData.append(td.text)
+
+	detailRecord = 0
+	for r in detailsHeader:
+		part[detailsHeader[detailRecord]] = detailsData[detailRecord]
+		detailRecord += 1
 
 	print part
 
